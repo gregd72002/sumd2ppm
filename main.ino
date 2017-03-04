@@ -19,8 +19,8 @@
 #define LED_PIN 13
 #define PPM_PIN 20  //set PPM out pin. For TeensyLC: 6, 9, 10, 20, 22, 23
 #define SUMD_TIMEOUT_MS  1000
-#define PPM_FAILSAFE 500 //signal to send on SUMD_TIMEOUT; has to be between TX_MINIMUM_SIGNAL and TX_MAXIMUM_SIGNAL
-#define PPM_DEFAULT 1500 //default ppm signal for unused channels
+#define PPM_FAILSAFE 800 //signal to send on SUMD_TIMEOUT; has to be between TX_MINIMUM_SIGNAL and TX_MAXIMUM_SIGNAL
+#define PPM_DEFAULT 1500 //default signal for unused channels
 
 #define SUMD Serial //source
 #define DEBUG Serial1
@@ -53,7 +53,7 @@ void setup()
   ppmOut.begin(PPM_PIN); 
 
   for (i=0;i<PPM_MAX_CHANNELS;i++)
-    channels[i] = PPM_DEFAULT;
+    channels[i] = PPM_FAILSAFE;
 
   toggleLED(1000);
 
@@ -64,9 +64,10 @@ void setup()
 
 void loop() {
 
-  if (millis()-t>SUMD_TIMEOUT_MS) {
+  if ((millis()-t)>SUMD_TIMEOUT_MS) {
     for (i=0;i<PPM_MAX_CHANNELS;i++)
       ppmOut.write(i+1,PPM_FAILSAFE);
+    delay(20); 
   } 
 
   if (!SUMD.available()) return;
@@ -75,12 +76,15 @@ void loop() {
 
   int ret = sumd_decode(c, &rssi, &rx_count, &channel_count, channels, PPM_MAX_CHANNELS);
   if (ret) return;  //sumd_decode returns 0 on decoded packet
+
+  for (i=channel_count;i<PPM_MAX_CHANNELS;i++) //unused channels 
+      channels[i] = PPM_DEFAULT;
   
   //we have a valid sumd
   digitalWrite(LED_PIN, HIGH);
   t = millis(); //reset failsafe timer
 
-  for (i=0;i<channel_count;i++)
+  for (i=0;i<PPM_MAX_CHANNELS;i++)
     ppmOut.write(i+1,channels[i]);
 
   digitalWrite(LED_PIN, LOW);
